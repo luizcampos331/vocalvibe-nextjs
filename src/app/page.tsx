@@ -1,5 +1,5 @@
 'use client'
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import AudioMessage from "../components/audio-message";
 import AudioPreview from "@/components/audio-preview";
 import AudioRedord from "@/components/audio-record";
@@ -9,6 +9,7 @@ import WebSocketService from "@/services/web-socket";
 
 export default function Home() {
   const [conversationStarted, setConversationStarted] = useState(false);
+  const [conversationFinished, setConversationFinished] = useState(false);
   const [audioMessages, setAudioMessages] = useState<any[]>([]);
   const [isRecording, setIsRecording] = useState(false);
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
@@ -30,6 +31,7 @@ export default function Home() {
   const handleResetConversation = () => {
     setAudioMessages([])
     setConversationStarted(false);
+    setConversationFinished(false);
   }
 
   const handleStartRecording = async () => {
@@ -113,6 +115,10 @@ export default function Home() {
         { sender: "left", audio: audioUrl, pipelineConversationQuestionId: data.pipelineConversationQuestionId },
       ]);
     });
+
+    webSocketService.listen("finish-pipeline-conversation", (data) => {
+      setConversationFinished(true);
+    });
   }, []);
 
   return (
@@ -134,6 +140,16 @@ export default function Home() {
                 Press "start" button and initiate your conversation with the AI
               </p>
             )}
+            {conversationFinished && (
+              <>
+                <h3 className="text-2xl text-center text-gray-500 dark:text-gray-400">
+                  Converssation finished
+                </h3>
+                <p className="text-center text-sm text-gray-500 dark:text-gray-400">
+                  Press "restart" button and reinitiate your conversation with the AI
+                </p>
+              </>
+            )}
             {audioMessages.map((msg, index) => (
               <AudioMessage
                 key={index}
@@ -143,7 +159,7 @@ export default function Home() {
             ))}
           </div>
 
-          {conversationStarted && (
+          {conversationStarted && !conversationFinished && (
             <div className="flex justify-center gap-4 mt-4">
               {!isPreviewing ? (
                 <div className="flex items-center gap-4">
