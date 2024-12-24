@@ -1,9 +1,11 @@
 'use client'
-import { useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import AudioMessage from "../components/audio-message";
 import AudioPreview from "@/components/audio-preview";
 import AudioRedord from "@/components/audio-record";
 import ConversationCommands from "@/components/conversation-commands";
+import api from "@/services/api";
+import WebSocketService from "@/services/web-socket";
 
 export default function Home() {
   const [conversationStarted, setConversationStarted] = useState(false);
@@ -15,14 +17,14 @@ export default function Home() {
   const audioContext = useRef<AudioContext | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
 
-  const handleStartConversation = () => {
-    setAudioMessages([
-      { sender: "left", audio: "f272033daf-question.mp3" },
-      { sender: "right", audio: "f272033daf-question.mp3" },
-      { sender: "left", audio: "f272033daf-question.mp3" },
-      { sender: "right", audio: "f272033daf-question.mp3" },
-    ])
-    setConversationStarted(true);
+  const handleStartConversation = async () => {
+    try {
+      const createResponse = await api.post("/pipeline-conversations");
+      await api.post(`/pipeline-conversations/${createResponse.data.id}/start`);
+      setConversationStarted(true);
+    } catch (error) {
+      console.error(error);
+    }
   }
 
   const handleResetConversation = () => {
@@ -39,7 +41,7 @@ export default function Home() {
     const audioChunks: BlobPart[] = [];
     mediaRecorder.ondataavailable = (event) => audioChunks.push(event.data);
     mediaRecorder.onstop = () => {
-      const blob = new Blob(audioChunks, { type: "audio/mp3" });
+      const blob = new Blob(audioChunks, { type: "audio/webm" });
       setAudioBlob(blob);
       setIsPreviewing(true);
     };
@@ -67,8 +69,23 @@ export default function Home() {
     }
   };
 
-  const handleConfirmPreview = () => {
+  const handleConfirmPreview = async () => {
     if (audioBlob) {
+      const webSocketService = new WebSocketService();
+
+      const fileBuffer = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(Buffer.from(reader.result as ArrayBuffer));
+        reader.onerror = reject;
+        reader.readAsArrayBuffer(audioBlob);
+      });
+
+      webSocketService.emit("answer-question", {
+        fileBuffer,
+        filename: `awnser-question-${audioMessages[audioMessages.length - 1].pipelineConversationQuestionId}.webm`,
+        pipelineConversationQuestionId: audioMessages[audioMessages.length - 1].pipelineConversationQuestionId,
+      });
+
       setAudioMessages((prev) => [
         ...prev,
         { sender: "right", audio: URL.createObjectURL(audioBlob) },
@@ -84,6 +101,19 @@ export default function Home() {
     setIsPreviewing(false);
     setIsRecording(false);
   };
+
+  useEffect(() => {
+    const webSocketService = new WebSocketService();
+    webSocketService.listen("send-question-to-user", (data) => {
+      const audioBlob = new Blob([data.question.audio], { type: 'audio/webm' });
+      const audioUrl = URL.createObjectURL(audioBlob);
+
+      setAudioMessages((prev) => [
+        ...prev,
+        { sender: "left", audio: audioUrl, pipelineConversationQuestionId: data.pipelineConversationQuestionId },
+      ]);
+    });
+  }, []);
 
   return (
     <div className="flex flex-col min-h-screen p-10">
