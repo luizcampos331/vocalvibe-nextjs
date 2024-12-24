@@ -118,7 +118,7 @@ export default function Home() {
   return (
     <div className="flex flex-col min-h-screen p-10">
       <main className="flex flex-col gap-8 items-center flex-grow">
-        <h1 className="text-3xl font-bold text-center">Interview simulation</h1>
+        <h1 className="text-3xl font-bold text-center">Conversation</h1>
         <div>
           <ConversationCommands
             conversationStarted={conversationStarted}
@@ -131,7 +131,7 @@ export default function Home() {
           <div className=" flex flex-col overflow-y-auto border border-solid border-black/[.08] dark:border-white/[.145] p-4 rounded max-h-[calc(100vh-20rem)] min-h-[50px] gap-5">
             {!conversationStarted && (
               <p className="text-center text-sm text-gray-500 dark:text-gray-400">
-                Press "start" button and initiate the simularion interview in English
+                Press "start" button and initiate your conversation with the AI
               </p>
             )}
             {audioMessages.map((msg, index) => (
